@@ -1,49 +1,166 @@
 import 'package:flutter/material.dart';
 import 'category_card.dart';
 import '../models/category.dart';
+import '../screens/category_screen.dart';
+import '../data/product_data.dart';
 
 class CategoryGrid extends StatelessWidget {
   const CategoryGrid({Key? key}) : super(key: key);
 
-  static final List<Category> categories = [
-    Category(name: 'Groceries', image: 'assets/images/groceries.jpg', id: '1'),//Icons.shopping_basket
-    Category(name: 'Vegetables', image: 'assets/images/vegetables.jpg', id: '2'),
-    Category(name: 'Fruits', image: 'assets/images/fruits.jpg', id: '3'),
-    Category(name: 'Seafood', image: 'assets/images/seafood.jpg', id: '4'),
-    Category(name: 'Meat', image: 'assets/images/meat.jpg', id: '5'),
-    Category(name: 'Spices', image: 'assets/images/spices.jpg', id: '6'),
-    Category(name: 'Rice', image: 'assets/images/rice.jpg', id: '7'),
-    Category(name: 'Drinks', image: 'assets/images/softdrinks.jpg', id: '8'),
+  static List<Category> categories = [
+    Category(
+      name: 'Groceries',
+      icon: Icons.shopping_basket,
+      color: Colors.amber,
+      id: 1,
+    ),
+    Category(
+      name: 'Vegetables',
+      icon: Icons.eco,
+      color: Colors.green,
+      id: 2,
+    ),
+    Category(
+      name: 'Fruits',
+      icon: Icons.apple,
+      color: Colors.red,
+      id: 3,
+    ),
+    Category(
+      name: 'Seafood',
+      icon: Icons.set_meal,
+      color: Colors.blue,
+      id: 4,
+    ),
+    Category(
+      name: 'Meat',
+      icon: Icons.restaurant_menu,
+      color: Colors.redAccent,
+      id: 5,
+    ),
+    Category(
+      name: 'Spices',
+      icon: Icons.spa,
+      color: Colors.purple,
+      id: 6
+    ),
+    Category(
+      name: 'Rice',
+      icon: Icons.spa,
+      color: Colors.purple,
+      id: 7
+    ),
+    Category(
+      name: 'Drinks',
+      icon: Icons.spa,
+      color: Colors.orange,
+      id: 8
+    ),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12.0),
-      child: GridView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.1,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+Widget build(BuildContext context) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        child: Text(
+          'Categories',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          return CategoryCard(
-            title: categories[index].name!,
-            imageUrl: categories[index].image!,
-            onTap: () {
-              Navigator.pushNamed(
-                context,
-                '/category',
-                arguments: categories[index].name,
-              );
-            },
-          );
-        },
       ),
-    );
-  }
+      SizedBox(
+        height: 160, // Fixed height for horizontal scroll container
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          itemCount: categories.length,
+          itemBuilder: (context, index) {
+            final category = categories[index];
+            return Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: InkWell(
+                onTap: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/category',
+                    arguments: {
+                      'category': category.name,
+                      'title': category.name,
+                      'products': ProductsData.getProductsByCategory(category.name),
+                    },
+                  );
+                },
+                child: Container(
+                  width: 140, // Fixed width for each card
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 1,
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: category.color.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: category.color,
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            category.icon,
+                            color: category.color,
+                            size: 30,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          category.name,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Explore',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
 }

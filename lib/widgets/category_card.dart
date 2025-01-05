@@ -3,14 +3,15 @@ import 'package:flutter/material.dart';
 
 class CategoryCard extends StatelessWidget {
   final String title;
-  final String imageUrl;
+  // final String imageUrl;
   final VoidCallback onTap;
+  final String iconimage;
 
   const CategoryCard({
     Key? key,
     required this.title,
-    required this.imageUrl,
     required this.onTap,
+    required this.iconimage,
   }) : super(key: key);
 
   @override
@@ -41,10 +42,10 @@ class CategoryCard extends StatelessWidget {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    image: DecorationImage(
-                      image: AssetImage(imageUrl),
-                      fit: BoxFit.cover,
-                    ),
+                    // image: DecorationImage(
+                    //   image: AssetImage(imageUrl),
+                    //   fit: BoxFit.cover,
+                    // ),
                   ),
                 ),
               ),

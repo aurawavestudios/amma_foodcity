@@ -1,60 +1,54 @@
+// lib/widgets/featured_products.dart
 import 'package:flutter/material.dart';
-import 'product_card.dart';
+import '/widgets/product_card.dart';
+import '/data/product_data.dart';
+import '../models/product.dart';
 
 class FeaturedProducts extends StatelessWidget {
-  FeaturedProducts({Key? key}) : super(key: key);  // Removed const
-
-  final List<Map<String, String>> products = [      // Removed const for flexibility
-    {
-      'name': 'Wine',
-      'price': '2.99',
-      'imagePath': 'assets/images/products/wine.jpg',
-    },
-    {
-      'name': 'Beer',
-      'price': '1.99',
-      'imagePath': 'assets/images/products/famous.jpg',
-    },
-    {
-      'name': 'Vodka',
-      'price': '3.99',
-      'imagePath': 'assets/images/products/vodka.jpg',
-    },
-  ];
+  const FeaturedProducts({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Featured Products',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+    final List<Product> products = ProductsData.getAllProducts().take(5).toList();
+
+    return SizedBox(
+      height: 280,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: products.length,
+        itemBuilder: (context, index) {
+          final product = products[index];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: SizedBox(
+              width: 200,
+              child: ProductCard(
+                name: product.name,
+                price: product.price,
+                imagePath: product.imagePath,
+                imageUrls: product.imageUrls,
+                isOnSale: product.isOnSale,
+                salePrice: product.salePrice,
+                onTap: () {
+                  Navigator.pushNamed(
+                    context,
+                    '/product-details',
+                    arguments: product.id,
+                  );
+                },
+                onAddToCart: () {
+                  // Handle add to cart
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Added ${product.name} to cart'),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: products.length,
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: ProductCard(
-                    name: products[index]['name'].toString(),
-                    price: products[index]['price'].toString(),
-                    imagePath: products[index]['imagePath'].toString(),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
