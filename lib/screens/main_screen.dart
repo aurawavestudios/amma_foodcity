@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/bottom_nav_bar.dart';
 import './home_screen.dart';
 import './categories_screen.dart';
-import '../profile/screens/profile_screen.dart';
+import '../screens/profile_screen.dart';
 // import './explore_screen.dart';
 // import './wishlist_screen.dart';
 

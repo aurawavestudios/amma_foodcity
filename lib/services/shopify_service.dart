@@ -3,8 +3,12 @@ import 'package:graphql_flutter/graphql_flutter.dart';
 import '../models/product.dart';
 
 class ShopifyConfig {
-  static const String shopDomain = 'your-store.myshopify.com';
-  static const String storefrontAccessToken = 'your-storefront-access-token';
+  static const String shopDomain = 'khb11m-aw.myshopify.com';
+  static const String storefrontAccessToken = '602cf40738a3ccd7928d4794fef0e263';
+  static const String apiVersion = '2024-01';
+
+  static String get apiUrl => 
+    'https://$shopDomain/api/$apiVersion/graphql.json';
 }
 
 class ShopifyService {

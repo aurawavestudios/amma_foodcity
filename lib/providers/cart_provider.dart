@@ -3,8 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/product.dart';
 import '../services/shopify_service.dart';
 
-class CartItem
-{
+class CartItem {
   final String id;
   final String name;
   final int quantity;
@@ -20,32 +19,23 @@ class CartItem
   });
 }
 
-class CartProvider with ChangeNotifier
-{
+class CartProvider with ChangeNotifier {
   final ShopifyService _shopifyService = ShopifyService();
   Map<String, CartItem> _items = {};
 
-  Map<String, CartItem> get items
-{
-    return {..._items};
-  }
+  Map<String, CartItem> get items => {..._items};
 
-  int get itemCount
-{
-    return _items.length;
-  }
+  int get itemCount => _items.length;
 
-  double get totalAmount
-{
+  double get totalAmount {
     var total = 0.0;
-    _items.forEach((key, cartItem)
-{
+    _items.forEach((key, cartItem) {
       total += double.parse(cartItem.price) * cartItem.quantity;
     });
     return total;
   }
 
-Future<void> addItem(Product product) async {
+  Future<void> addItem(Product product) async {
     try {
       // Add to Shopify cart
       await _shopifyService.addToCart(product.id, 1);
@@ -91,6 +81,36 @@ Future<void> addItem(Product product) async {
       notifyListeners();
     } catch (e) {
       print('Error removing item from cart: $e');
+      throw e;
+    }
+  }
+
+  Future<void> removeSingleItem(String productId) async {
+    try {
+      if (!_items.containsKey(productId)) return;
+
+      // Update Shopify cart
+      // You might want to implement the Shopify cart update logic here
+      
+      // Update local state
+      if (_items[productId]!.quantity > 1) {
+        _items.update(
+          productId,
+          (existingCartItem) => CartItem(
+            id: existingCartItem.id,
+            name: existingCartItem.name,
+            quantity: existingCartItem.quantity - 1,
+            price: existingCartItem.price,
+            imagePath: existingCartItem.imagePath,
+          ),
+        );
+      } else {
+        _items.remove(productId);
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error updating cart item: $e');
       throw e;
     }
   }
