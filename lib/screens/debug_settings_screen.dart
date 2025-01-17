@@ -1,8 +1,11 @@
 // lib/screens/debug_settings_screen.dart
 import 'package:flutter/material.dart';
-import '../services/shopify_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'dart:io';
+import '../services/shopify_service.dart';
+import '../services/category_manager.dart';
+import '../services/shopify_category_service.dart';
+import '../config/shopify_config.dart';
 
 class DebugSettingsScreen extends StatefulWidget {
   const DebugSettingsScreen({Key? key}) : super(key: key);
@@ -12,13 +15,21 @@ class DebugSettingsScreen extends StatefulWidget {
 }
 
 class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
+  final ShopifyService _shopifyService = ShopifyService();
+  late final CategoryManager _categoryManager;
   PackageInfo? _packageInfo;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _initializeServices();
     _loadPackageInfo();
+  }
+
+  void _initializeServices() {
+    final shopifyClient = _shopifyService.getClient();
+    _categoryManager = CategoryManager(ShopifyCategoryService(shopifyClient));
   }
 
   Future<void> _loadPackageInfo() async {
@@ -27,6 +38,33 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
       _packageInfo = packageInfo;
       _isLoading = false;
     });
+  }
+
+  Future<void> _testConnection() async {
+    try {
+      setState(() => _isLoading = true);
+      final categories = await _categoryManager.getMainCategories();
+      
+      if (!mounted) return;
+      
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully fetched ${categories.length} categories'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -120,21 +158,13 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
         ListTile(
           leading: const Icon(Icons.refresh),
           title: const Text('Test Shopify Connection'),
-          onTap: () {
-            Navigator.pushNamed(context, '/shopify-debug');
-          },
+          onTap: () => _testShopifyConnection(),
         ),
         ListTile(
           leading: const Icon(Icons.delete_outline),
           title: const Text('Clear App Data'),
           subtitle: const Text('Removes all local data and cache'),
           onTap: () => _showClearDataDialog(),
-        ),
-        ListTile(
-          leading: const Icon(Icons.bug_report_outlined),
-          title: const Text('Generate Test Error'),
-          subtitle: const Text('Creates a test error for debugging'),
-          onTap: () => _generateTestError(),
         ),
       ],
     );
@@ -156,6 +186,29 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _testShopifyConnection() async {
+    try {
+      final categories = await _categoryManager.getMainCategories();
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Successfully fetched ${categories.length} categories'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Connection error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _showClearDataDialog() async {
@@ -185,18 +238,5 @@ class _DebugSettingsScreenState extends State<DebugSettingsScreen> {
         ],
       ),
     );
-  }
-
-  void _generateTestError() {
-    try {
-      throw Exception('Test error generated from debug menu');
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Test error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }

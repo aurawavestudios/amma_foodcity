@@ -54,10 +54,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
       // Fetch updated products from Shopify
       // You might want to add category filtering in the query
-      final products = await _shopifyService.getProducts();
+      final result = await _shopifyService.getProducts(
+        productType: widget.category,
+        sortKey: _sortBy,
+        isOnSale: _onSaleOnly,
+        minPrice: _priceRange.start,
+        maxPrice: _priceRange.end,
+      );
       
       setState(() {
-        _products = products;
+        _products = result['products'] as List<Product>;
         _isLoading = false;
       });
     } catch (e) {
@@ -76,17 +82,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
         return false;
       }
       
-      if (_searchQuery.isNotEmpty && 
-          !_matchesSearch(product)) {
-        return false;
-      }
-      
-      final price = _getEffectivePrice(product);
-      if (price < _priceRange.start || price > _priceRange.end) {
-        return false;
-      }
-      
-      if (_onSaleOnly && !product.isOnSale) {
+      if (_searchQuery.isNotEmpty && !_matchesSearch(product)) {
         return false;
       }
       

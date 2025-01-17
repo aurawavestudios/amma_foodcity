@@ -1,43 +1,40 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'models/product.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'routes/app_router.dart';
 import 'routes/app_routes.dart';
 import 'theme/app_theme.dart';
-
-// Import all screens
 import 'screens/main_screen.dart';
 import 'screens/home_screen.dart';
 import 'onboarding/screens/onboarding_screen.dart';
 import 'auth/screens/signup_screen.dart';
 import 'auth/screens/login_screen.dart';
-import 'screens/category_screen.dart';
-import 'screens/product_details_screen.dart';
-import 'screens/cart_screen.dart';
-import 'screens/checkout_screen.dart';
-
 import 'providers/cart_provider.dart';
 import 'providers/favorites_provider.dart';
+import 'services/data_service.dart';
+import 'data/product_data.dart';
+import './providers/category_provider.dart';
+import './services/shopify_service.dart';
 
-void main() async
-{
+Future<bool> initializeApp() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final prefs = await SharedPreferences.getInstance();
-  final showHome = prefs.getBool('showHome') ?? false;
   
-  runApp(MultiProvider(
-    providers: [
-      ChangeNotifierProvider(create: (_) => CartProvider()),
-      ChangeNotifierProvider(create: (_) => FavoritesProvider()),
-    ],
-    child: MyApp(showHome: showHome),
-  ));
-}
+  // Initialize DataService first
+    await DataService.init();
 
-class MyApp extends StatefulWidget
-{
+  // Load initial data
+  await ProductsData.loadProducts();
+
+  final shopifyService = ShopifyService();
+  
+  // Finally load preferences
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('showHome') ?? false;
+  }
+
+class MyApp extends StatefulWidget {
   final bool showHome;
   
   const MyApp({Key? key, required this.showHome}) : super(key: key);
@@ -46,52 +43,99 @@ class MyApp extends StatefulWidget
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp>
-{
-  List<Product> productsList = [];
+class _MyAppState extends State<MyApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  bool _initialized = false;
 
   @override
-  void initState()
-{
+  void initState() {
     super.initState();
-    loadProducts();
-  }
-
-  Future<void> loadProducts() async
-{
-    // Implement the logic to fetch products, either from an API or local database.
-    // Once products are fetched, update the productsList and state.
-    final products = await fetchProducts(); // Your fetching method here
-    setState(()
-{
-      productsList = products;
-    });
-  }
-
-  Future<List<Product>> fetchProducts() async
-{
-    // Example: Fetch data from a local JSON file or API.
-    // Replace this with your actual product loading logic.
-    await Future.delayed(const Duration(seconds: 2)); // Simulate network delay
-    return []; // Return the list of products here
+    _initialized = DataService.isInitialized;
   }
 
   @override
-  Widget build(BuildContext context)
-{
+  Widget build(BuildContext context) {
+    if (!_initialized) {
+      return MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'Amma Foodcity',
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.onboarding,
+      home: widget.showHome ? const HomeScreen() : const OnboardingScreen(),
       onGenerateRoute: AppRouter.generateRoute,
-      routes: 
-{
-        AppRoutes.onboarding:(context) => const OnboardingScreen(),
-        AppRoutes.signup:(context) => const SignUpScreen(),
-        AppRoutes.login:(context) => const LoginScreen(),
-        AppRoutes.main:(context) => const MainScreen(),
-        AppRoutes.home:(context) => const HomeScreen(),
-      },
+      debugShowCheckedModeBanner: false,
+    );
+  }
+
+  @override
+  void dispose() {
+    DataService.closeAll();
+    super.dispose();
+  }
+}
+
+Future<void> retryInitialization() async {
+  try {
+    final showHome = await initializeApp();
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CartProvider()),
+          ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+          ChangeNotifierProvider(create: (_) => CategoryProvider(ShopifyService())),
+        ],
+        child: MyApp(showHome: showHome),
+      ),
+    );
+  } catch (e) {
+    print('Retry failed: $e');
+  }
+}
+
+void main() async {
+  try {
+    final showHome = await initializeApp();
+    
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => CartProvider()),
+          ChangeNotifierProvider(create: (_) => FavoritesProvider()),
+        ],
+        child: MyApp(showHome: showHome),
+      ),
+    );
+  } catch (e, stackTrace) {
+    print('Error initializing app: $e');
+    print('Stack trace: $stackTrace');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                Text('Error initializing app: $e'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: retryInitialization,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

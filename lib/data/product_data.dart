@@ -1,54 +1,169 @@
 // lib/data/product_data.dart
 import '../models/product.dart';
-import '../services/shopify_service.dart';
+import '../services/data_service.dart';
 
 class ProductsData {
-  static final ShopifyService _shopifyService = ShopifyService();
-  static List<Product> _products = [];
+  static const Duration _cacheTimeout = Duration(minutes: 5);
 
   static Future<void> loadProducts() async {
+    if (!DataService.isInitialized) {
+      throw Exception('DataService not initialized');
+    }
+    
     try {
-      _products = await _shopifyService.getProducts();
-    } catch (e) {
+      // Check if cache is still valid
+      final lastFetchStr = DataService.cacheBox.get('lastProductFetch');
+      final lastFetch = lastFetchStr != null ? DateTime.parse(lastFetchStr) : null;
+      
+      if (lastFetch != null && 
+          DateTime.now().difference(lastFetch) < _cacheTimeout &&
+          DataService.productsBox.isNotEmpty) {
+        return;
+      }
+
+      final result = await DataService.shopifyService.getProducts();
+      if (result != null && result.containsKey('products')) {
+        final products = result['products'] as List<Product>;
+      
+        // Clear and update products box
+        await DataService.productsBox.clear();
+        await DataService.productsBox.putAll(
+          Map.fromEntries(products.map((p) => MapEntry(p.id, p)))
+        );
+      
+        // Update last fetch time
+        await DataService.cacheBox.put(
+          'lastProductFetch', 
+          DateTime.now().toIso8601String()
+        );
+      }
+    } catch (e, stackTrace) {
       print('Error loading products: $e');
-      _products = [];
+      print('Stack trace: $stackTrace');
+      rethrow;
     }
   }
 
-  static List<Product> getAllProducts() {
-    return _products;
+  static Future<List<Product>> getAllProducts() async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      return DataService.productsBox.values.toList();
+    } catch (e) {
+      print('Error getting all products: $e');
+      return [];
+    }
   }
 
-  static Product? getProductById(String id) {
+  static Future<Product?> getProductById(String id) async {
+    if (!DataService.isInitialized) {
+      return null;
+    }
+
     try {
-      return _products.firstWhere((product) => product.id == id);
+      await loadProducts();
+      return DataService.productsBox.get(id);
     } catch (e) {
+      print('Error getting product by ID: $e');
       return null;
     }
   }
 
-  static List<Product> getProductsByCategory(String category) {
-    return _products
-        .where((product) => product.category == category)
-        .toList();
+  static Future<List<Product>> getProductsByCategory(String category) async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      return DataService.productsBox.values
+          .where((p) => p.category == category)
+          .toList();
+    } catch (e) {
+      print('Error getting products by category: $e');
+      return [];
+    }
   }
 
-  static List<Product> getOnSaleProducts() {
-    return _products.where((product) => product.isOnSale).toList();
+  static Future<List<Product>> getOnSaleProducts() async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      return DataService.productsBox.values
+          .where((p) => p.isOnSale)
+          .toList();
+    } catch (e) {
+      print('Error getting sale products: $e');
+      return [];
+    }
   }
 
-  static List<Product> getFeaturedProducts() {
-    // You might want to get this from a specific Shopify collection
-    return _products.take(4).toList();
+  static Future<List<Product>> getFeaturedProducts() async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      return DataService.productsBox.values
+          .where((p) => p.tags.contains('featured'))
+          .take(4)
+          .toList();
+    } catch (e) {
+      print('Error getting featured products: $e');
+      return [];
+    }
   }
 
-  static List<Product> getNewArrivals() {
-    // Sort by creation date and take latest
-    return _products.reversed.take(4).toList();
+  static Future<List<Product>> getNewArrivals() async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      final products = DataService.productsBox.values.toList()
+        ..sort((a, b) => (b.publishedAt ?? DateTime.now())
+            .compareTo(a.publishedAt ?? DateTime.now()));
+      return products.take(4).toList();
+    } catch (e) {
+      print('Error getting new arrivals: $e');
+      return [];
+    }
   }
 
-  static List<Product> getBestSellers() {
-    // This could come from a "Best Sellers" collection in Shopify
-    return _products.where((product) => product.isOnSale).toList();
+  static Future<List<Product>> getBestSellers() async {
+    if (!DataService.isInitialized) {
+      return [];
+    }
+
+    try {
+      await loadProducts();
+      return DataService.productsBox.values
+          .take(4)
+          .toList();
+    } catch (e) {
+      print('Error getting best sellers: $e');
+      return [];
+    }
+  }
+
+  static Future<void> clearCache() async {
+    if (!DataService.isInitialized) {
+      return;
+    }
+
+    try {
+      await DataService.productsBox.clear();
+      await DataService.cacheBox.delete('lastProductFetch');
+    } catch (e) {
+      print('Error clearing cache: $e');
+    }
   }
 }

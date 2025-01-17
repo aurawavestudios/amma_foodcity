@@ -12,6 +12,7 @@ import '../providers/favorites_provider.dart';
 import '../data/product_data.dart';
 import '../models/product.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../widgets/category_grid.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -25,23 +26,37 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _showSearchResults = false;
   bool _isLoading = true;
   String? _error;
+  List<Product> _allProducts = [];
+  List<Product> _featuredProducts = [];
+  List<Product> _newArrivals = [];
+  List<Product> _bestSellers = [];
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadAllProducts();
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadAllProducts() async {
     try {
       setState(() {
         _isLoading = true;
         _error = null;
       });
 
-      await ProductsData.loadProducts();
+  // Load all data in parallel
+      final results = await Future.wait([
+        ProductsData.getFeaturedProducts(),
+        ProductsData.getNewArrivals(),
+        ProductsData.getBestSellers(),
+        ProductsData.getAllProducts(),
+      ]);
 
       setState(() {
+        _featuredProducts = results[0];
+        _newArrivals = results[1];
+        _bestSellers = results[2];
+        _allProducts = results[3];
         _isLoading = false;
       });
     } catch (e) {
@@ -49,16 +64,154 @@ class _HomeScreenState extends State<HomeScreen> {
         _isLoading = false;
         _error = 'Failed to load products. Please try again.';
       });
-      print('Error loading products: $e');
+      print('Error loading data: $e');
     }
   }
 
+   Future<void> _refreshData() async {
+    await _loadAllProducts();
+  }
+
+  Widget _buildMainContent() {
+    return RefreshIndicator(
+      onRefresh: _refreshData,
+      child: SingleChildScrollView(
+        child: Column(
+          children: [
+            const PromotionsBanner(),
+            const CategoryGrid(),
+            const SizedBox(height: 16),
+            _buildFeaturedSection(),
+            _buildNewArrivalsSection(),
+            _buildBestSellersSection(),
+            const ContactSection(),
+          ],
+        ),
+      ),
+    );
+  }
   Future<void> _launchWhatsApp() async {
     final Uri url = Uri.parse('https://wa.me/+447459174387');
     if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch WhatsApp');
     }
   }
+
+  Widget _buildFeaturedSection() {
+    return CategorySection(
+      title: 'Featured Products',
+      category: 'Featured',
+      products: _featuredProducts,
+      onProductTap: (product) => Navigator.pushNamed(
+        context,
+        '/product-details',
+        arguments: product.id,
+      ),
+    );
+  }
+
+  Widget _buildNewArrivalsSection() {
+    return CategorySection(
+      title: 'New Arrivals',
+      category: 'New',
+      products: _newArrivals,
+      onProductTap: (product) => Navigator.pushNamed(
+        context,
+        '/product-details',
+        arguments: product.id,
+      ),
+    );
+  }
+
+  Widget _buildBestSellersSection() {
+    return CategorySection(
+      title: 'Best Sellers',
+      category: 'Best Sellers',
+      products: _bestSellers,
+      onProductTap: (product) => Navigator.pushNamed(
+        context,
+        '/product-details',
+        arguments: product.id,
+      ),
+    );
+  }
+
+   Widget _buildSearchResults() {
+    final searchResults = _allProducts.where((p) =>
+      p.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+      p.description.toLowerCase().contains(_searchController.text.toLowerCase())
+    ).toList();
+
+    if (searchResults.isEmpty) {
+      return const Center(
+        child: Text(
+          'No products found',
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      );
+    }
+
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.7,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: searchResults.length,
+      itemBuilder: (context, index) {
+        final product = searchResults[index];
+        return _buildProductCard(product);
+      },
+    );
+  }
+
+  Widget _buildProductCard(Product product) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/product-details',
+        arguments: product.id,
+      ),
+      child: Consumer<CartProvider>(
+        builder: (ctx, cart, _) => Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildProductImage(product),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    _buildPriceSection(product),
+                    const SizedBox(height: 8),
+                    _buildAddToCartButton(context, product),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(_error!, style: const TextStyle(color: Colors.red)),
             ElevatedButton(
-              onPressed: _loadProducts,
+              onPressed: _loadAllProducts,
               child: const Text('Retry'),
             ),
           ],
@@ -138,140 +291,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildMainContent() {
-    return RefreshIndicator(
-      onRefresh: _loadProducts,
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const PromotionsBanner(),
-            const CategoryGrid(),
-            const SizedBox(height: 16),
-            _buildFeaturedSection(),
-            _buildNewArrivalsSection(),
-            _buildBestSellersSection(),
-            const ContactSection(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeaturedSection() {
-    final products = ProductsData.getFeaturedProducts();
-    return CategorySection(
-      title: 'Featured Products',
-      category: 'Featured',
-      products: products,
-      onProductTap: (product) => Navigator.pushNamed(
-        context,
-        '/product-details',
-        arguments: product.id,
-      ),
-    );
-  }
-
-  Widget _buildNewArrivalsSection() {
-    final products = ProductsData.getNewArrivals();
-    return CategorySection(
-      title: 'New Arrivals',
-      category: 'New',
-      products: products,
-      onProductTap: (product) => Navigator.pushNamed(
-        context,
-        '/product-details',
-        arguments: product.id,
-      ),
-    );
-  }
-
-  Widget _buildBestSellersSection() {
-    final products = ProductsData.getBestSellers();
-    return CategorySection(
-      title: 'Best Sellers',
-      category: 'Best Sellers',
-      products: products,
-      onProductTap: (product) => Navigator.pushNamed(
-        context,
-        '/product-details',
-        arguments: product.id,
-      ),
-    );
-  }
-
-  Widget _buildSearchResults() {
-    final searchResults = ProductsData.getAllProducts()
-        .where((p) =>
-            p.name.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-            p.description.toLowerCase().contains(_searchController.text.toLowerCase()))
-        .toList();
-
-    if (searchResults.isEmpty) {
-      return const Center(
-        child: Text(
-          'No products found',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      padding: const EdgeInsets.all(8),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: searchResults.length,
-      itemBuilder: (context, index) {
-        final product = searchResults[index];
-        return GestureDetector(
-          onTap: () => Navigator.pushNamed(
-            context,
-            '/product-details',
-            arguments: product.id,
-          ),
-          child: Consumer<CartProvider>(
-            builder: (ctx, cart, _) => Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildProductImage(product),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          product.name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        _buildPriceSection(product),
-                        const SizedBox(height: 8),
-                        _buildAddToCartButton(context, product),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
